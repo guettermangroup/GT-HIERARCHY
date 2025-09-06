@@ -1,0 +1,297 @@
+<!-- ADMIN.HTML - Keep this file private for admin use --><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Hierarchy Admin Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .neon-green { color: #39ff14; }
+        .bg-neon-green { background-color: #39ff14; }
+        .border-neon-green { border-color: #39ff14; }
+        .hover-neon-green:hover { background-color: #39ff14; }
+        .glow { box-shadow: 0 0 10px #39ff14; }
+        .employee-card {
+            position: relative;
+            z-index: 2;
+        }
+    </style>
+</head>
+<body class="bg-black text-white min-h-screen p-6">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold neon-green mb-4">Team Hierarchy Admin Panel</h1>
+            <p class="text-gray-300">Manage your team hierarchy data</p>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="bg-gray-900 rounded-lg p-8 mb-8 border border-gray-700">
+            <h3 class="text-xl font-semibold neon-green mb-6">Upload Team Data</h3>
+            <div class="flex flex-col items-center">
+                <label for="csvFile" class="bg-neon-green text-black px-8 py-4 rounded-lg font-semibold cursor-pointer hover:bg-green-400 transition-colors mb-6 text-lg">
+                    📁 Choose CSV File
+                </label>
+                <input type="file" id="csvFile" accept=".csv" class="hidden">
+                <p class="text-sm text-gray-400 mb-4">CSV format: Agent ID, Name, Role, Direct To, Manager ID, Phone, Picture</p>
+                <div class="flex space-x-4">
+                    <button id="loadSample" class="text-neon-green hover:underline">Load Sample Data</button>
+                    <button id="clearData" class="text-red-400 hover:underline">Clear All Data</button>
+                    <button id="previewDisplay" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-white">Preview Display</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Status -->
+        <div class="bg-gray-900 rounded-lg p-6 mb-8 border border-gray-700">
+            <h3 class="text-xl font-semibold neon-green mb-4">Data Status</h3>
+            <div id="dataStatus" class="text-gray-400">
+                Loading...
+            </div>
+        </div>
+
+        <!-- Preview Section -->
+        <div id="previewSection" class="bg-gray-900 rounded-lg p-6 mb-8 border border-gray-700 hidden">
+            <h3 class="text-xl font-semibold neon-green mb-4">Preview (How it looks on your website)</h3>
+            <div id="previewChart" class="bg-black rounded p-4"></div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="bg-gray-900 rounded-lg p-6 border border-gray-700">
+            <h3 class="text-xl font-semibold neon-green mb-4">Instructions</h3>
+            <div class="text-gray-300 space-y-3">
+                <p><strong>CSV Format:</strong> Agent ID, Name, Role, Direct To, Manager ID, Phone, Picture</p>
+                <p><strong>How to use:</strong></p>
+                <ol class="list-decimal list-inside ml-4 space-y-1">
+                    <li>Upload your CSV file or load sample data</li>
+                    <li>Use "Preview Display" to see how it will look</li>
+                    <li>Upload the display.html file to your website</li>
+                    <li>Embed it using: <code class="bg-black px-2 py-1 rounded">&lt;iframe src="display.html" width="100%" height="600"&gt;&lt;/iframe&gt;</code></li>
+                </ol>
+                <p class="text-sm text-yellow-400">💡 The display page automatically loads your data from this admin panel!</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let hierarchyData = [];
+        
+        // Sample data
+        const sampleData = [
+            { agentId: "001", name: "Sarah Wilson", role: "CEO", directTo: "", managerId: "", phone: "555-0101", picture: "" },
+            { agentId: "002", name: "David Chen", role: "CTO", directTo: "Sarah Wilson", managerId: "001", phone: "555-0102", picture: "" },
+            { agentId: "003", name: "Lisa Rodriguez", role: "CFO", directTo: "Sarah Wilson", managerId: "001", phone: "555-0103", picture: "" },
+            { agentId: "004", name: "Mark Thompson", role: "VP Marketing", directTo: "Sarah Wilson", managerId: "001", phone: "555-0104", picture: "" },
+            { agentId: "005", name: "Alex Kim", role: "Senior Developer", directTo: "David Chen", managerId: "002", phone: "555-0105", picture: "" },
+            { agentId: "007", name: "Ryan Foster", role: "Financial Analyst", directTo: "Lisa Rodriguez", managerId: "003", phone: "555-0107", picture: "" },
+            { agentId: "008", name: "Sophie Turner", role: "Marketing Manager", directTo: "Mark Thompson", managerId: "004", phone: "555-0108", picture: "" },
+            { agentId: "009", name: "James Wilson", role: "Junior Developer", directTo: "Alex Kim", managerId: "005", phone: "555-0109", picture: "" },
+            { agentId: "010", name: "Maya Patel", role: "Content Specialist", directTo: "Sophie Turner", managerId: "008", phone: "555-0110", picture: "" }
+        ];
+
+        // Load data from localStorage on page load
+        function loadStoredData() {
+            const stored = localStorage.getItem('hierarchyData');
+            if (stored) {
+                hierarchyData = JSON.parse(stored);
+            }
+            updateDataStatus();
+        }
+
+        // Save data to localStorage
+        function saveData() {
+            localStorage.setItem('hierarchyData', JSON.stringify(hierarchyData));
+            updateDataStatus();
+        }
+
+        // File upload handler
+        document.getElementById('csvFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const csv = e.target.result;
+                    parseCSV(csv);
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        // Load sample data
+        document.getElementById('loadSample').addEventListener('click', function() {
+            hierarchyData = [...sampleData];
+            saveData();
+            alert('Sample data loaded successfully!');
+        });
+
+        // Clear data
+        document.getElementById('clearData').addEventListener('click', function() {
+            if (confirm('Are you sure you want to clear all data?')) {
+                hierarchyData = [];
+                saveData();
+                document.getElementById('previewSection').classList.add('hidden');
+                alert('All data cleared successfully!');
+            }
+        });
+
+        // Preview display
+        document.getElementById('previewDisplay').addEventListener('click', function() {
+            if (hierarchyData.length === 0) {
+                alert('Please upload data first!');
+                return;
+            }
+            document.getElementById('previewSection').classList.remove('hidden');
+            renderPreview();
+        });
+
+        // Parse CSV data
+        function parseCSV(csv) {
+            const lines = csv.trim().split('\n');
+            hierarchyData = [];
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (line) {
+                    const [agentId, name, role, directTo, managerId, phone, picture] = line.split(',').map(item => item.trim());
+                    if (agentId && name && role) {
+                        hierarchyData.push({
+                            agentId: agentId,
+                            name: name,
+                            role: role,
+                            directTo: directTo || "",
+                            managerId: managerId || "",
+                            phone: phone || "",
+                            picture: picture || ""
+                        });
+                    }
+                }
+            }
+            
+            if (hierarchyData.length > 0) {
+                saveData();
+                alert(`Successfully uploaded ${hierarchyData.length} employee records!`);
+            } else {
+                alert('No valid data found in CSV file. Please check the format.');
+            }
+        }
+
+        // Update data status
+        function updateDataStatus() {
+            const statusDiv = document.getElementById('dataStatus');
+            if (hierarchyData.length === 0) {
+                statusDiv.innerHTML = '<span class="text-red-400">❌ No data uploaded yet</span>';
+            } else {
+                const lastUpdated = localStorage.getItem('hierarchyDataTimestamp') || 'Unknown';
+                statusDiv.innerHTML = `
+                    <div class="text-neon-green">✅ Data loaded successfully</div>
+                    <div class="mt-2 text-sm">
+                        <span class="text-gray-300">Total employees: <strong>${hierarchyData.length}</strong></span><br>
+                        <span class="text-gray-300">Last updated: <strong>${new Date().toLocaleString()}</strong></span><br>
+                        <span class="text-gray-300">Status: <strong class="text-neon-green">Ready for display</strong></span>
+                    </div>
+                `;
+            }
+        }
+
+        // Build hierarchy tree
+        function buildHierarchyTree(data) {
+            const tree = {};
+            const employees = {};
+            const employeesByName = {};
+            
+            data.forEach(emp => {
+                employees[emp.agentId] = { ...emp, children: [] };
+                employeesByName[emp.name] = employees[emp.agentId];
+            });
+            
+            data.forEach(emp => {
+                if (!emp.managerId || emp.managerId === "") {
+                    tree[emp.agentId] = employees[emp.agentId];
+                } else if (employees[emp.managerId]) {
+                    employees[emp.managerId].children.push(employees[emp.agentId]);
+                } else if (emp.directTo && employeesByName[emp.directTo]) {
+                    employeesByName[emp.directTo].children.push(employees[emp.agentId]);
+                }
+            });
+            
+            return tree;
+        }
+
+        // Render preview
+        function renderPreview() {
+            const tree = buildHierarchyTree(hierarchyData);
+            const previewChart = document.getElementById('previewChart');
+            previewChart.innerHTML = '';
+            
+            Object.values(tree).forEach((employee, index) => {
+                const employeeElement = renderEmployee(employee, 0, index);
+                previewChart.appendChild(employeeElement);
+            });
+        }
+
+        // Render individual employee card
+        function renderEmployee(employee, level, index) {
+            const container = document.createElement('div');
+            container.className = 'mb-8';
+            
+            const card = document.createElement('div');
+            card.className = `employee-card bg-gray-800 border-2 border-neon-green rounded-lg p-3 cursor-pointer hover:glow transition-all duration-300 inline-block min-w-72`;
+            card.style.marginLeft = `${level * 40}px`;
+            
+            card.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        ${employee.picture && employee.picture !== '' ? `
+                            <img src="${employee.picture}" alt="${employee.name}" class="w-10 h-10 rounded-full border-2 border-neon-green object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <div class="w-10 h-10 rounded-full bg-neon-green flex items-center justify-center text-black font-bold text-sm" style="display: none;">
+                                ${employee.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                            </div>
+                        ` : `
+                            <div class="w-10 h-10 rounded-full bg-neon-green flex items-center justify-center text-black font-bold text-sm">
+                                ${employee.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                            </div>
+                        `}
+                        <div>
+                            <h3 class="font-bold text-sm neon-green">${employee.name}</h3>
+                            <p class="text-white text-xs">${employee.role}</p>
+                            <p class="text-gray-400 text-xs">ID: ${employee.agentId}</p>
+                        </div>
+                    </div>
+                    ${employee.children.length > 0 ? `
+                        <svg class="w-4 h-4 neon-green" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                        </svg>
+                    ` : ''}
+                </div>
+            `;
+            
+            container.appendChild(card);
+            
+            if (employee.children.length > 0) {
+                const childrenContainer = document.createElement('div');
+                childrenContainer.className = 'mt-4 ml-8';
+                
+                employee.children.forEach((child, childIndex) => {
+                    const childElement = renderEmployee(child, level + 1, childIndex);
+                    childrenContainer.appendChild(childElement);
+                });
+                
+                container.appendChild(childrenContainer);
+            }
+            
+            return container;
+        }
+
+        // Override saveData to include timestamp
+        const originalSaveData = saveData;
+        saveData = function() {
+            localStorage.setItem('hierarchyData', JSON.stringify(hierarchyData));
+            localStorage.setItem('hierarchyDataTimestamp', new Date().toISOString());
+            updateDataStatus();
+        };
+
+        // Initialize
+        loadStoredData();
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97af562133c2e5c1',t:'MTc1NzE3NjA3NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
